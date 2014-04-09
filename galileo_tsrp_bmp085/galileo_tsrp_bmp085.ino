@@ -149,9 +149,12 @@ void setup() {
   //Opening serail
   Serial.begin(9600);
 
+
   // initialize the digital pin as an output.
   pinMode(led_pin, OUTPUT); 
 
+  while(!Serial) { }
+  
    
   //Setting up packet buffers
   if ( -1 == fill_param_template(TSRP_PACKET_PROTO, params_template) )
@@ -168,32 +171,63 @@ void setup() {
   //Filling the packet buffers with the known information
 
   //BMP085
-  write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEVICE_PATH], _Q( "/device/climate/galileo/bmp085") );
-  write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEVICE_NAME], _Q( "BMP085" ));
+  write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEVICE_PATH], _Q( "/device/climate/bmp085/sensor") );
+  write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEVICE_NAME], _Q( "BMP085 Pressure Sensor" ));
   write_parameter(buffer_bmp085, &params_template[POS_PARAM_PROPERTIES],_S("pressure") _Q("Pa") "," _S("temperature") _Q("celsius"));
   write_parameter(buffer_bmp085, &params_template[POS_PARAM_INSTANCE_NAME], _Q( "BMP085" ));
-  write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEV_SERIAL], _Q( "23410109120912" ));
-  write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEV_UDN], _Q( "321-456-789-10-11-12" ));
 
   //Quark
-  write_parameter(buffer_galileo, &params_template[POS_PARAM_DEVICE_PATH], _Q( "/device/climate/galileo/quark") );
+  write_parameter(buffer_galileo, &params_template[POS_PARAM_DEVICE_PATH], _Q( "/device/climate/galileo_quark/sensor") );
   write_parameter(buffer_galileo, &params_template[POS_PARAM_DEVICE_NAME], _Q( "Quark Temperature Sensor" ));
   write_parameter(buffer_galileo, &params_template[POS_PARAM_PROPERTIES],  _S("temperature") _Q("celsius"));
   write_parameter(buffer_galileo, &params_template[POS_PARAM_INSTANCE_NAME], _Q( "Quark" ));
-  write_parameter(buffer_galileo, &params_template[POS_PARAM_DEV_SERIAL], _Q( "12010109120912" ));
-  write_parameter(buffer_galileo, &params_template[POS_PARAM_DEV_UDN], _Q( "123-456-789-10-11-12" ));
+  
 
   //ADC on Quark
-  write_parameter(buffer_adc, &params_template[POS_PARAM_DEVICE_PATH], _Q( "/device/climate/galileo/adc") );
+  write_parameter(buffer_adc, &params_template[POS_PARAM_DEVICE_PATH], _Q( "/device/climate/galileo_adc/sensor") );
   write_parameter(buffer_adc, &params_template[POS_PARAM_DEVICE_NAME], _Q( "ADC Temperature Sensor" ));
   write_parameter(buffer_adc, &params_template[POS_PARAM_PROPERTIES],  _S("temperature") _Q("celsius"));
   write_parameter(buffer_adc, &params_template[POS_PARAM_INSTANCE_NAME], _Q( "ADC" ));
-  write_parameter(buffer_adc, &params_template[POS_PARAM_DEV_SERIAL], _Q( "12110109120912" ));
-  write_parameter(buffer_adc, &params_template[POS_PARAM_DEV_UDN], _Q( "123-457-789-10-11-12" ));
 
+  /*Creating serial and UDN's from device's eth0 MAC */
+  {
+    static const char *default_mac="01:23:45:67:89:AB";
+    char mac_buf[24];
+    const char *mac = default_mac;
+    
+    FILE *fp;
+    system("ifconfig eth0 | grep HWaddr | sed -e 's/.*HWaddr //'>/home/root/mac.txt");
+    fp = fopen("/home/root/mac.txt", "r");
+    if(fp) 
+    {
+      if( fgets(mac_buf, 20, fp) > 0)
+      {
+        mac = (const char *) mac_buf;
+      }
+      fclose(fp);
+    }
+    
+    Serial.print("\nRetreived MAC from eth0:");
+    Serial.println(mac);
+    
+    {
+        char buf[64];
+          //Serial #
+        sprintf(buf,"\"1-%s\"", mac);
+        write_parameter(buffer_adc, &params_template[POS_PARAM_DEV_SERIAL], buf);
+        buf[1]='2';
+        write_parameter(buffer_galileo, &params_template[POS_PARAM_DEV_SERIAL], buf);
+        buf[1]='3';    
+        write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEV_SERIAL], buf);
+        buf[1]='4';
+        write_parameter(buffer_bmp085, &params_template[POS_PARAM_DEV_UDN], buf);
+        buf[1]='5';
+        write_parameter(buffer_galileo, &params_template[POS_PARAM_DEV_UDN],buf);
+        buf[1]='6';
+        write_parameter(buffer_adc, &params_template[POS_PARAM_DEV_UDN],buf);
+    }
+  }
 
-  while(!Serial) { }
-  
   Serial.println("\nStarting...");
 
   //Starting I2C
